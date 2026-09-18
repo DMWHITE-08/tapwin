@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The 100 Game - Can You Reach 100?</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --cell-bg: #334155;
+      --cell-filled: #475569;
+      --cell-hover: #64748b;
+      --valid-color: #10b981;
+      --valid-glow: rgba(16, 185, 129, 0.35);
+      --current-color: #f59e0b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #6366f1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 580px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.9rem;
+    }
+
+    header {
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 900;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #a5b4fc, #6366f1, #f59e0b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .rules-summary {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    /* Scoreboard & Stats */
+    .stats-bar {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      padding: 0.75rem 1.2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 700;
+    }
+
+    .stat-val {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .stat-val.score {
+      color: var(--current-color);
+    }
+
+    /* Board Container */
+    .board-wrapper {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: var(--card-bg);
+      padding: 10px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #grid {
+      display: grid;
+      width: 100%;
+      height: 100%;
+      gap: 5px;
+    }
+
+    .cell {
+      background-color: var(--cell-bg);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(0.7rem, 2.5vw, 1.05rem);
+      font-weight: 700;
+      color: var(--text-muted);
+      transition: all 0.15s ease-in-out;
+      cursor: default;
+    }
+
+    /* Available initial cells */
+    .cell.starter {
+      cursor: pointer;
+      background-color: #1e293b;
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+    }
+    .cell.starter:hover {
+      background-color: #3b4252;
+      border-color: #8892b0;
+    }
+
+    /* Filled numbers */
+    .cell.filled {
+      background-color: var(--cell-filled);
+      color: #ffffff;
+    }
+
+    /* Current active number */
+    .cell.current {
+      background-color: var(--current-color) !important;
+      color: #0f172a !important;
+      transform: scale(1.05);
+      font-weight: 900;
+      box-shadow: 0 0 14px rgba(245, 158, 11, 0.7);
+      z-index: 2;
+    }
+
+    /* Valid Next Moves */
+    .cell.valid {
+      background-color: #064e3b;
+      border: 2px solid var(--valid-color);
+      cursor: pointer;
+      position: relative;
+      animation: pulse 1.4s infinite alternate ease-in-out;
+    }
+
+    .cell.valid::after {
+      content: "";
+      width: 8px;
+      height: 8px;
+      background-color: var(--valid-color);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--valid-color);
+    }
+
+    .cell.valid:hover {
+      background-color: var(--valid-color);
+      transform: scale(1.08);
+      z-index: 3;
+    }
+
+    .cell.valid:hover::after {
+      background-color: #ffffff;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0px var(--valid-glow); }
+      100% { box-shadow: 0 0 10px var(--valid-glow); }
+    }
+
+    /* Buttons & Controls */
+    .controls {
+      display: flex;
+      gap: 0.6rem;
+      width: 100%;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.6rem 1.1rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: #334155;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border: none;
+    }
+
+    button.primary:hover {
+      background: #4f46e5;
+    }
+
+    /* Modal / Popups */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 100;
+    }
+
+    .modal.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: var(--card-bg);
+      border: 1px solid #334155;
+      max-width: 420px;
+      width: 100%;
+      padding: 1.8rem;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+    }
+
+    .modal-card h2 {
+      font-size: 1.6rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .modal-card p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin-bottom: 1.4rem;
+    }
+
+    .modal-card ul {
+      text-align: left;
+      margin: 0.8rem 1.4rem 1.4rem 1.4rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.7;
+    }
+
+    .modal-card ul strong {
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>100 PUZZLE</h1>
+      <p class="rules-summary">Jump: 3 steps orthogonal • 2 steps diagonal</p>
+    </header>
+
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="stat-label">Current</span>
+        <span class="stat-val score" id="score">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Moves Left</span>
+        <span class="stat-val" id="moves-left" style="color: #10b981;">-</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">High Score</span>
+        <span class="stat-val" id="best-score">0</span>
+      </div>
+    </div>
+
+    <!-- Board -->
+    <div class="board-wrapper">
+      <div id="grid"></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button id="undo-btn" disabled>↩ Undo</button>
+      <button id="rules-btn">❓ How to Play</button>
+      <button id="sound-btn">🔊 Sound: ON</button>
+      <button id="reset-btn" class="primary">🔄 New Game</button>
+    </div>
+  </div>
+
+  <!-- Dialog Modal -->
+  <div class="modal" id="modal">
+    <div class="modal-card">
+      <h2 id="modal-title">How to Play</h2>
+      <div id="modal-body">
+        <p>Fill the entire 10×10 grid from 1 to 100 without getting trapped!</p>
+        <ul>
+          <li><strong>Orthogonal (↕ / ↔):</strong> Move 3 squares (skip 2 empty cells).</li>
+          <li><strong>Diagonal (⤢ / ⤡):</strong> Move 2 squares (skip 1 empty cell).</li>
+          <li>You cannot land on an already numbered cell.</li>
+        </ul>
+      </div>
+      <button class="primary" style="margin: 0 auto; min-width: 140px; justify-content: center;" id="modal-close">Got It</button>
+    </div>
+  </div>
+
+  <script>
+    const BOARD_SIZE = 10;
+    const TOTAL_CELLS = BOARD_SIZE * BOARD_SIZE;
+
+    let board = [];
+    let history = [];
+    let currentNumber = 0;
+    let lastPos = null;
+    let soundEnabled = true;
+
+    // Audio synthesizer via Web Audio API
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new AudioCtx();
+      }
+    }
+
+    function playTone(freq, duration = 0.08, type = "sine") {
+      if (!soundEnabled) return;
+      initAudio();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playWinSound() {
+      if (!soundEnabled) return;
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, idx) => {
+        setTimeout(() => playTone(freq, 0.3, "triangle"), idx * 120);
+      });
+    }
+
+    function playGameOverSound() {
+      if (!soundEnabled) return;
+      const notes = [293.66, 261.63, 220.00, 174.61];
+      notes.forEach((freq, idx) => {
+        setTimeout(() => playTone(freq, 0.25, "sawtooth"), idx * 130);
+      });
+    }
+
+    // Dom Elements
+    const gridEl = document.getElementById("grid");
+    const scoreEl = document.getElementById("score");
+    const movesLeftEl = document.getElementById("moves-left");
+    const bestScoreEl = document.getElementById("best-score");
+    const undoBtn = document.getElementById("undo-btn");
+    const resetBtn = document.getElementById("reset-btn");
+    const soundBtn = document.getElementById("sound-btn");
+    const rulesBtn = document.getElementById("rules-btn");
+    const modalEl = document.getElementById("modal");
+    const modalTitleEl = document.getElementById("modal-title");
+    const modalBodyEl = document.getElementById("modal-body");
+    const modalCloseBtn = document.getElementById("modal-close");
+
+    // Load High Score
+    const savedBest = localStorage.getItem("game100_best") || 0;
+    bestScoreEl.textContent = savedBest;
+
+    function setupBoard() {
+      gridEl.style.gridTemplateColumns = `repeat(${BOARD_SIZE}, 1fr)`;
+      gridEl.style.gridTemplateRows = `repeat(${BOARD_SIZE}, 1fr)`;
+      gridEl.innerHTML = "";
+
+      board = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
+      history = [];
+      currentNumber = 0;
+      lastPos = null;
+
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          const cell = document.createElement("div");
+          cell.classList.add("cell", "starter");
+          cell.dataset.row = r;
+          cell.dataset.col = c;
+          cell.addEventListener("click", () => handleCellClick(r, c));
+          gridEl.appendChild(cell);
+        }
+      }
+
+      updateUI();
+    }
+
+    function getValidMoves(r, c) {
+      const candidates = [
+        // Horizontal & Vertical: 3 steps
+        [r - 3, c], [r + 3, c], [r, c - 3], [r, c + 3],
+        // Diagonal: 2 steps
+        [r - 2, c - 2], [r - 2, c + 2], [r + 2, c - 2], [r + 2, c + 2]
+      ];
+
+      return candidates.filter(([nr, nc]) => {
+        return nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === 0;
+      });
+    }
+
+    function handleCellClick(r, c) {
+      if (currentNumber === 0) {
+        // First move: any cell is valid
+        placeNumber(r, c);
+        return;
+      }
+
+      const validMoves = getValidMoves(lastPos.r, lastPos.c);
+      const isValid = validMoves.some(([vr, vc]) => vr === r && vc === c);
+
+      if (isValid) {
+        placeNumber(r, c);
+      }
+    }
+
+    function placeNumber(r, c) {
+      currentNumber++;
+      board[r][c] = currentNumber;
+      lastPos = { r, c };
+      history.push({ r, c, num: currentNumber });
+
+      // Play progressive tone
+      const freq = 220 + (currentNumber * 8);
+      playTone(freq, 0.08, "sine");
+
+      updateBestScore(currentNumber);
+      updateUI();
+
+      // Check conditions
+      if (currentNumber === TOTAL_CELLS) {
+        setTimeout(showWinModal, 250);
+      } else {
+        const nextMoves = getValidMoves(r, c);
+        if (nextMoves.length === 0) {
+          setTimeout(showGameOverModal, 250);
+        }
+      }
+    }
+
+    function undoMove() {
+      if (history.length === 0) return;
+
+      const last = history.pop();
+      board[last.r][last.cl || last.c] = 0;
+      currentNumber--;
+
+      if (history.length > 0) {
+        const prev = history[history.length - 1];
+        lastPos = { r: prev.r, c: prev.c };
+      } else {
+        lastPos = null;
+      }
+
+      playTone(240, 0.08, "square");
+      updateUI();
+    }
+
+    function updateBestScore(score) {
+      const currentBest = parseInt(localStorage.getItem("game100_best") || 0, 10);
+      if (score > currentBest) {
+        localStorage.setItem("game100_best", score);
+        bestScoreEl.textContent = score;
+      }
+    }
+
+    function updateUI() {
+      scoreEl.textContent = currentNumber;
+      undoBtn.disabled = history.length === 0;
+
+      let validMoves = [];
+      if (lastPos) {
+        validMoves = getValidMoves(lastPos.r, lastPos.c);
+        movesLeftEl.textContent = validMoves.length;
+      } else {
+        movesLeftEl.textContent = currentNumber === 0 ? "Any" : "0";
+      }
+
+      const cells = gridEl.children;
+
+      for (let i = 0; i < cells.length; i++) {
+        const cell = cells[i];
+        const r = parseInt(cell.dataset.row, 10);
+        const c = parseInt(cell.dataset.col, 10);
+        const val = board[r][c];
+
+        // Reset classes
+        cell.className = "cell";
+        cell.textContent = val > 0 ? val : "";
+
+        if (val > 0) {
+          cell.classList.add("filled");
+          if (lastPos && lastPos.r === r && lastPos.c === c) {
+            cell.classList.add("current");
+          }
+        } else if (currentNumber === 0) {
+          cell.classList.add("starter");
+        } else {
+          const isValid = validMoves.some(([vr, vc]) => vr === r && vc === c);
+          if (isValid) {
+            cell.classList.add("valid");
+          }
+        }
+      }
+    }
+
+    // Modals
+    function showWinModal() {
+      playWinSound();
+      modalTitleEl.textContent = "🏆 Mastermind!";
+      modalTitleEl.style.color = "#10b981";
+      modalBodyEl.innerHTML = `<p>Unbelievable! You reached the perfect <strong>100</strong> and conquered the board!</p>`;
+      modalEl.classList.add("active");
+    }
+
+    function showGameOverModal() {
+      playGameOverSound();
+      modalTitleEl.textContent = "Game Over!";
+      modalTitleEl.style.color = "#ef4444";
+      modalBodyEl.innerHTML = `
+        <p>No valid moves left!</p>
+        <p style="font-size: 1.2rem; font-weight: bold; color: #f8fafc;">Final Score: ${currentNumber} / ${TOTAL_CELLS}</p>
+        <p style="font-size: 0.85rem;">Tip: Try keeping your moves along the perimeter and corners first!</p>
+      `;
+      modalEl.classList.add("active");
+    }
+
+    function showRulesModal() {
+      modalTitleEl.textContent = "How to Play";
+      modalTitleEl.style.color = "#f8fafc";
+      modalBodyEl.innerHTML = `
+        <p>Goal: Fill numbers 1 through 100 on the 10×10 grid.</p>
+        <ul>
+          <li><strong>Orthogonal:</strong> Jump 3 steps in straight lines (skip 2 cells).</li>
+          <li><strong>Diagonal:</strong> Jump 2 steps diagonally (skip 1 cell).</li>
+          <li>You cannot land on cells that are already filled.</li>
+        </ul>
+      `;
+      modalEl.classList.add("active");
+    }
+
+    // Event Listeners
+    undoBtn.addEventListener("click", undoMove);
+    resetBtn.addEventListener("click", setupBoard);
+    rulesBtn.addEventListener("click", showRulesModal);
+    modalCloseBtn.addEventListener("click", () => modalEl.classList.remove("active"));
+    modalEl.addEventListener("click", (e) => {
+      if (e.target === modalEl) modalEl.classList.remove("active");
+    });
+
+    soundBtn.addEventListener("click", () => {
+      soundEnabled = !soundEnabled;
+      soundBtn.textContent = soundEnabled ? "🔊 Sound: ON" : "🔇 Sound: OFF";
+    });
+
+    // Start game
+    setupBoard();
+  </script>
+</body>
+</html>
